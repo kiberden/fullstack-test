@@ -41,4 +41,33 @@ class Validation extends BaseConfig
     // --------------------------------------------------------------------
     // Rules
     // --------------------------------------------------------------------
+
+    public array $comment = [
+        'user_id' => [
+            'label' => 'Пользователь',
+            'rules' => 'required|is_natural_no_zero',
+            'errors' => [
+                'required'           => 'Не указан пользователь',
+                'is_natural_no_zero' => 'Некорректный пользователь',
+            ],
+        ],
+        'text' => [
+            'label' => 'Текст',
+            'rules' => 'required',
+            'errors' => [
+                'required' => 'Введите текст комментария',
+            ],
+        ],
+    ];
+
+    public array $user_identify = [
+        'email' => [
+            'label' => 'Email',
+            'rules' => 'required|valid_email|max_length[255]',
+            'errors' => [
+                'required'    => 'Укажите email',
+                'valid_email' => 'Некорректный email',
+            ],
+        ],
+    ];
 }
