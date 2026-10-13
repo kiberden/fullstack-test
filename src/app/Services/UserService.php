@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\UserModel;
@@ -44,7 +46,7 @@ final class UserService
             'email' => $data['email'] ?? null,
         ];
 
-        if (!$this->validation->run($payload, 'user_identify')) {
+        if (! $this->validation->run($payload, 'user_identify')) {
             return [
                 'success' => false,
                 'errors' => $this->validation->getErrors(),
@@ -60,7 +62,7 @@ final class UserService
             ];
         }
 
-        $sessionId = session_id();
+        $sessionId = $this->issueSessionBinding();
         $existing  = $this->userModel->where('email', $email)->first();
 
         if ($existing !== null) {
@@ -94,6 +96,7 @@ final class UserService
         $this->session->set([
             'user_id' => (int) $user['id'],
             'user_email' => $user['email'],
+            'session_binding' => $sessionId,
         ]);
 
         return [
@@ -110,7 +113,13 @@ final class UserService
      */
     public function current(): ?array
     {
-        $user = $this->userModel->where('session', session_id())->first();
+        $sessionId = $this->readSessionBinding();
+
+        if ($sessionId === null) {
+            return null;
+        }
+
+        $user = $this->userModel->where('session', $sessionId)->first();
 
         if ($user === null) {
             return null;
@@ -119,6 +128,7 @@ final class UserService
         $this->session->set([
             'user_id' => (int) $user['id'],
             'user_email' => $user['email'],
+            'session_binding' => $sessionId,
         ]);
 
         return $this->publicUser($user);
@@ -132,6 +142,52 @@ final class UserService
     public function isIdentified(): bool
     {
         return $this->current() !== null;
+    }
+
+    /**
+     * Только чтение текущего binding — без генерации (иначе аноним получит чужой lookup).
+     */
+    private function readSessionBinding(): ?string
+    {
+        $fromSession = trim((string) $this->session->get('session_binding'));
+
+        if ($fromSession !== '') {
+            return $fromSession;
+        }
+
+        $sessionId = trim((string) ($this->session->session_id ?? ''));
+
+        if ($sessionId === '') {
+            $sessionId = trim((string) session_id());
+        }
+
+        return $sessionId !== '' ? $sessionId : null;
+    }
+
+    /**
+     * Выдаёт binding для identify: native session id или fallback для PHPUnit MockSession.
+     * Снимает binding с других users, чтобы один session не указывал на двух пользователей.
+     */
+    private function issueSessionBinding(): string
+    {
+        $sessionId = trim((string) ($this->session->session_id ?? ''));
+
+        if ($sessionId === '') {
+            $sessionId = trim((string) session_id());
+        }
+
+        if ($sessionId === '') {
+            $sessionId = bin2hex(random_bytes(20));
+        }
+
+        $this->userModel
+            ->where('session', $sessionId)
+            ->set(['session' => ''])
+            ->update();
+
+        $this->session->set('session_binding', $sessionId);
+
+        return $sessionId;
     }
 
     /**

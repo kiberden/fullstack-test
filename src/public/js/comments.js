@@ -120,7 +120,22 @@
 
             App.dom.showAlert(alertsEl, 'success', 'Комментарий удалён');
             reloadComments(currentPage);
-        }).fail(function () {
+        }).fail(function (xhr) {
+            if (xhr.status === 401) {
+                window.location.reload();
+                return;
+            }
+
+            if (xhr.status === 403) {
+                const errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
+                App.dom.showAlert(
+                    alertsEl,
+                    'danger',
+                    errors.forbidden || 'Можно удалить только свой комментарий'
+                );
+                return;
+            }
+
             App.dom.showAlert(alertsEl, 'danger', 'Не удалось удалить комментарий');
         });
     });

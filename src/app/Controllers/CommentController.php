@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Services\CommentService;
@@ -118,9 +120,20 @@ class CommentController extends BaseController
     public function delete(int $id): ResponseInterface
     {
         $result = $this->commentService->delete($id);
+        $status = 200;
+
+        if (! $result['success']) {
+            if (isset($result['errors']['auth'])) {
+                $status = 401;
+            } elseif (isset($result['errors']['forbidden'])) {
+                $status = 403;
+            } else {
+                $status = 404;
+            }
+        }
 
         return $this->response
-            ->setStatusCode($result['success'] ? 200 : 404)
+            ->setStatusCode($status)
             ->setJSON($this->withCsrf($result));
     }
 

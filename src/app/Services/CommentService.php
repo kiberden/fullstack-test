@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\CommentModel;
@@ -234,7 +236,7 @@ final class CommentService
             'text' => $data['text'] ?? null,
         ];
 
-        if (!$this->validation->run($payload, 'comment')) {
+        if (! $this->validation->run($payload, 'comment')) {
             return [
                 'success' => false,
                 'errors' => $this->validation->getErrors(),
@@ -266,10 +268,35 @@ final class CommentService
      */
     public function delete(int $id): array
     {
-        if ($id <= 0 || $this->commentModel->find($id) === null) {
+        $user = $this->userService->current();
+
+        if ($user === null) {
+            return [
+                'success' => false,
+                'errors' => ['auth' => 'Необходима идентификация'],
+            ];
+        }
+
+        if ($id <= 0) {
             return [
                 'success' => false,
                 'errors' => ['id' => 'Комментарий не найден'],
+            ];
+        }
+
+        $comment = $this->commentModel->find($id);
+
+        if ($comment === null) {
+            return [
+                'success' => false,
+                'errors' => ['id' => 'Комментарий не найден'],
+            ];
+        }
+
+        if ((int) $comment['user_id'] !== (int) $user['id']) {
+            return [
+                'success' => false,
+                'errors' => ['forbidden' => 'Можно удалить только свой комментарий'],
             ];
         }
 
