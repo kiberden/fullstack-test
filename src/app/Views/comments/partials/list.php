@@ -7,7 +7,7 @@
             </div>
         <?php else: ?>
             <?php foreach ($comments as $comment): ?>
-                <?= $this->include('comments/partials/item', ['comment' => $comment, 'user' => $user]) ?>
+                <?= view('comments/partials/item', ['comment' => $comment, 'user' => $user]) ?>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
