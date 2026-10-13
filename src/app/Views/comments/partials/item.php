@@ -1,3 +1,6 @@
+<?php
+$currentUserId = (int) ($user['id'] ?? 0);
+?>
 <div class="card mb-3 comment-item" data-id="<?= (int) $comment['id'] ?>">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
@@ -8,7 +11,7 @@
                     <?= esc($comment['date_create']) ?>
                 </small>
             </div>
-            <?php if ((int) $comment['user_id'] === (int) $user['id']): ?>
+            <?php if ($currentUserId > 0 && (int) $comment['user_id'] === $currentUserId): ?>
                 <button
                     type="button"
                     class="btn btn-sm btn-outline-danger btn-delete-comment"

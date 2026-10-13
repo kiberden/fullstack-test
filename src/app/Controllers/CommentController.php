@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Services\CommentService;
+use App\Services\UserService;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -13,6 +14,8 @@ use Psr\Log\LoggerInterface;
 class CommentController extends BaseController
 {
     private CommentService $commentService;
+
+    private UserService $userService;
 
     /**
      * @param RequestInterface $request
@@ -25,6 +28,7 @@ class CommentController extends BaseController
     {
         parent::initController($request, $response, $logger);
         $this->commentService = new CommentService();
+        $this->userService = new UserService();
     }
 
     /**
@@ -52,7 +56,36 @@ class CommentController extends BaseController
             'comments' => $result['comments'],
             'pagination' => $result['pagination'],
             'sorting' => $result['sorting'],
+            'html' => $this->renderListHtml($result),
         ]);
+    }
+
+    /**
+     * HTML списка и пагинации из тех же partials, что и SSR-страница.
+     *
+     * @param array{
+     *     comments: list<array<string, mixed>>,
+     *     pagination: array<string, mixed>,
+     *     sorting: array{sort: string, dir: string}
+     * } $result
+     *
+     * @return array{list: string, pagination: string}
+     */
+    private function renderListHtml(array $result): array
+    {
+        $user = $this->userService->current() ?? ['id' => 0];
+
+        return [
+            'list' => view('comments/partials/list_items', [
+                'comments' => $result['comments'],
+                'user' => $user,
+            ]),
+            'pagination' => view('comments/partials/pagination', [
+                'pagination' => $result['pagination'],
+                'sort' => $result['sorting']['sort'],
+                'dir' => $result['sorting']['dir'],
+            ]),
+        ];
     }
 
     /**

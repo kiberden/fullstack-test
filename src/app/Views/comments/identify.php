@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title><?= esc($title) ?></title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
+<?= $this->extend('layouts/main') ?>
 
+<?= $this->section('content') ?>
 <div
     class="modal fade"
     id="identify-modal"
@@ -51,72 +44,19 @@
         </div>
     </div>
 </div>
+<?= $this->endSection() ?>
 
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-(function ($) {
-    'use strict';
-
-    var csrfHash = <?= json_encode($csrfHash) ?>;
-
-    function getCookie(name) {
-        var match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : null;
-    }
-
-    function csrfHeader() {
-        return getCookie('csrf_cookie_name') || csrfHash;
-    }
-
-    $('#identify-modal').modal({
-        backdrop: 'static',
-        keyboard: false,
-        show: true
-    });
-
-    $('#identify-form').on('submit', function (e) {
-        e.preventDefault();
-
-        $('#identify-email').removeClass('is-invalid');
-        $('#identify-email-error').text('');
-        $('#identify-alert').empty();
-
-        $.ajax({
-            url: '/auth/identify',
-            method: 'POST',
-            contentType: 'application/json',
-            dataType: 'json',
-            headers: { 'X-CSRF-TOKEN': csrfHeader() },
-            data: JSON.stringify({ email: $('#identify-email').val() })
-        }).done(function (response) {
-            if (!response.success) {
-                return;
-            }
-
-            window.location.reload();
-        }).fail(function (xhr) {
-            // После любого POST CI регенерирует CSRF-токен; при ошибке страница
-            // остаётся со старым hash — повторный submit даст 403. Обновляем страницу.
-            if (xhr.status === 403) {
-                window.location.reload();
-                return;
-            }
-
-            var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
-
-            if (errors.email) {
-                $('#identify-email').addClass('is-invalid');
-                $('#identify-email-error').text(errors.email);
-                return;
-            }
-
-            $('#identify-alert').html(
-                '<div class="alert alert-danger mb-0">Не удалось сохранить email</div>'
-            );
-        });
-    });
-})(jQuery);
-</script>
-</body>
-</html>
+<?= $this->section('scripts') ?>
+<script type="application/json" id="app-config"><?=
+    json_encode([
+        'csrfHash' => $csrfHash,
+        'csrfCookie' => config('Security')->cookieName,
+        'csrfHeader' => config('Security')->headerName,
+    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+?></script>
+<script src="<?= esc(base_url('js/app.js')) ?>"></script>
+<script src="<?= esc(base_url('js/csrf.js')) ?>"></script>
+<script src="<?= esc(base_url('js/api.js')) ?>"></script>
+<script src="<?= esc(base_url('js/dom.js')) ?>"></script>
+<script src="<?= esc(base_url('js/identify.js')) ?>"></script>
+<?= $this->endSection() ?>

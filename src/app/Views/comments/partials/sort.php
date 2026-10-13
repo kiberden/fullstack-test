@@ -17,17 +17,3 @@
         <input type="hidden" name="page" value="1">
     </form>
 </section>
-<script>
-(function () {
-    var form = document.getElementById('comments-sort-form');
-    if (!form) {
-        return;
-    }
-
-    form.querySelectorAll('select').forEach(function (select) {
-        select.addEventListener('change', function () {
-            form.submit();
-        });
-    });
-})();
-</script>
