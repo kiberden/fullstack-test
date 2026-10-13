@@ -63,10 +63,10 @@ class Validation extends BaseConfig
     public array $user_identify = [
         'email' => [
             'label' => 'Email',
-            'rules' => 'required|valid_email|max_length[255]',
+            'rules' => 'required|max_length[255]',
             'errors' => [
-                'required'    => 'Укажите email',
-                'valid_email' => 'Некорректный email',
+                'required'   => 'Укажите email',
+                'max_length' => 'Email слишком длинный',
             ],
         ],
     ];

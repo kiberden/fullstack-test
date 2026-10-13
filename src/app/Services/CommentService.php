@@ -10,6 +10,18 @@ use CodeIgniter\Validation\ValidationInterface;
  */
 final class CommentService
 {
+    public const PER_PAGE = 3;
+
+    public const DEFAULT_SORT = 'id';
+
+    public const DEFAULT_DIR = 'desc';
+
+    /** @var list<string> */
+    public const ALLOWED_SORTS = ['id', 'date_create'];
+
+    /** @var list<string> */
+    public const ALLOWED_DIRS = ['asc', 'desc'];
+
     private CommentModel $commentModel;
     private ValidationInterface $validation;
     private UserService $userService;
@@ -31,15 +43,172 @@ final class CommentService
 
     /**
      * Получить список комментариев.
+     *
      * @return list<array<string, mixed>>
      */
-    public function getList(string $order = 'id', string $direction = 'ASC'): array
+    public function getList(string $order = 'id', string $direction = 'DESC'): array
     {
         return $this->commentModel
             ->select('comments.*, users.email')
             ->join('users', 'users.id = comments.user_id')
             ->orderBy('comments.' . $order, $direction)
             ->findAll();
+    }
+
+    /**
+     * Нормализация GET-параметров списка: page, sort, dir (whitelist).
+     *
+     * @return array{
+     *     page: int,
+     *     sort: string,
+     *     dir: string,
+     *     order: string,
+     *     direction: string
+     * }
+     */
+    public static function normalizeListQuery(
+        int|string|null $page = 1,
+        ?string $sort = null,
+        ?string $dir = null
+    ): array {
+        $sort = strtolower((string) $sort);
+        $dir  = strtolower((string) $dir);
+
+        if (! in_array($sort, self::ALLOWED_SORTS, true)) {
+            $sort = self::DEFAULT_SORT;
+        }
+
+        if (! in_array($dir, self::ALLOWED_DIRS, true)) {
+            $dir = self::DEFAULT_DIR;
+        }
+
+        return [
+            'page' => max(1, (int) ($page ?? 1)),
+            'sort' => $sort,
+            'dir' => $dir,
+            'order' => $sort,
+            'direction' => strtoupper($dir),
+        ];
+    }
+
+    /**
+     * Query-string для ссылок списка (пагинация / сортировка).
+     */
+    public static function buildListQuery(int $page, string $sort, string $dir): string
+    {
+        $normalized = self::normalizeListQuery($page, $sort, $dir);
+
+        return http_build_query([
+            'page' => $normalized['page'],
+            'sort' => $normalized['sort'],
+            'dir' => $normalized['dir'],
+        ]);
+    }
+
+    /**
+     * Получить страницу комментариев с метаданными пагинации и сортировки.
+     *
+     * @return array{
+     *     comments: list<array<string, mixed>>,
+     *     pagination: array{
+     *         page: int,
+     *         perPage: int,
+     *         total: int,
+     *         totalPages: int,
+     *         pages: list<int|null>
+     *     },
+     *     sorting: array{sort: string, dir: string}
+     * }
+     */
+    public function getPaginatedList(
+        int $page = 1,
+        int $perPage = self::PER_PAGE,
+        string $order = 'id',
+        string $direction = 'DESC'
+    ): array {
+        $normalized = self::normalizeListQuery($page, $order, $direction);
+        $perPage = max(1, $perPage);
+        $page = $normalized['page'];
+        $order = $normalized['order'];
+        $direction = $normalized['direction'];
+
+        $total = $this->commentModel
+            ->join('users', 'users.id = comments.user_id')
+            ->countAllResults();
+
+        $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 0;
+
+        if ($totalPages > 0 && $page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $comments = [];
+
+        if ($total > 0) {
+            $comments = $this->commentModel
+                ->select('comments.*, users.email')
+                ->join('users', 'users.id = comments.user_id')
+                ->orderBy('comments.' . $order, $direction)
+                ->findAll($perPage, ($page - 1) * $perPage);
+        }
+
+        return [
+            'comments'   => $comments,
+            'pagination' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'total' => $total,
+                'totalPages' => $totalPages,
+                'pages' => $this->buildPageWindow($page, $totalPages),
+            ],
+            'sorting' => [
+                'sort' => $normalized['sort'],
+                'dir' => $normalized['dir'],
+            ],
+        ];
+    }
+
+    /**
+     * Окно страниц: текущая ±2, первая и последняя; пропуски — null (многоточие).
+     *
+     * @return list<int|null>
+     */
+    private function buildPageWindow(int $current, int $totalPages): array
+    {
+        if ($totalPages <= 0) {
+            return [];
+        }
+
+        if ($totalPages === 1) {
+            return [1];
+        }
+
+        $visible = [];
+
+        foreach (range(max(1, $current - 2), min($totalPages, $current + 2)) as $page) {
+            $visible[$page] = true;
+        }
+
+        $visible[1] = true;
+        $visible[$totalPages] = true;
+
+        $pages = [];
+        $last = 0;
+
+        foreach (range(1, $totalPages) as $page) {
+            if (! isset($visible[$page])) {
+                continue;
+            }
+
+            if ($last !== 0 && $page - $last > 1) {
+                $pages[] = null;
+            }
+
+            $pages[] = $page;
+            $last = $page;
+        }
+
+        return $pages;
     }
 
     /**
@@ -56,7 +225,7 @@ final class CommentService
         if ($user === null) {
             return [
                 'success' => false,
-                'errors'  => ['auth' => 'Необходима идентификация'],
+                'errors' => ['auth' => 'Необходима идентификация'],
             ];
         }
 

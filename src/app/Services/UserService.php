@@ -52,6 +52,14 @@ final class UserService
         }
 
         $email = strtolower(trim((string) $payload['email']));
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return [
+                'success' => false,
+                'errors' => ['email' => 'Некорректный email'],
+            ];
+        }
+
         $sessionId = session_id();
         $existing  = $this->userModel->where('email', $email)->first();
 
@@ -109,7 +117,7 @@ final class UserService
         }
 
         $this->session->set([
-            'user_id'    => (int) $user['id'],
+            'user_id' => (int) $user['id'],
             'user_email' => $user['email'],
         ]);
 

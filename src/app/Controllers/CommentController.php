@@ -28,6 +28,34 @@ class CommentController extends BaseController
     }
 
     /**
+     * Список комментариев с пагинацией.
+     *
+     * @return ResponseInterface
+     */
+    public function index(): ResponseInterface
+    {
+        $query = CommentService::normalizeListQuery(
+            $this->request->getGet('page'),
+            $this->request->getGet('sort'),
+            $this->request->getGet('dir')
+        );
+
+        $result = $this->commentService->getPaginatedList(
+            $query['page'],
+            CommentService::PER_PAGE,
+            $query['order'],
+            $query['direction']
+        );
+
+        return $this->response->setJSON([
+            'success' => true,
+            'comments' => $result['comments'],
+            'pagination' => $result['pagination'],
+            'sorting' => $result['sorting'],
+        ]);
+    }
+
+    /**
      * @return ResponseInterface
      *
      * @throws \ReflectionException
@@ -46,7 +74,7 @@ class CommentController extends BaseController
 
         return $this->response
             ->setStatusCode($status)
-            ->setJSON($result);
+            ->setJSON($this->withCsrf($result));
     }
 
     /**
@@ -60,6 +88,20 @@ class CommentController extends BaseController
 
         return $this->response
             ->setStatusCode($result['success'] ? 200 : 404)
-            ->setJSON($result);
+            ->setJSON($this->withCsrf($result));
+    }
+
+    /**
+     * CSRF cookie HttpOnly + regenerate: клиент не читает cookie, отдаём новый hash в JSON.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function withCsrf(array $payload): array
+    {
+        $payload['csrfHash'] = csrf_hash();
+
+        return $payload;
     }
 }
